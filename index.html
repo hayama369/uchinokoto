@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>うちのこと</title>
+
+  <!-- スマホの「ホーム画面に追加」でアプリっぽく開くための設定 -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="うちのこと">
+  <meta name="theme-color" content="#16141a">
+
+  <!-- 文字：日付などの見出しはしっぽり明朝、本文は禅角ゴシック -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!--
+  =========================================================
+  index.html ― 画面の「枠」だけを書くファイル
+  ---------------------------------------------------------
+  ・各画面の中身は js/views/ の中のファイルが #view に描きます。
+  ・ハルは #haru-lane（タブの上の通り道）にだけいます。ボタンはそこに置きません。
+  ・id="..." は JavaScript から探すための名前なので、変えないでください。
+  =========================================================
+-->
+
+<!-- タブ（スマホは下、PCは左） -->
+<nav class="tabbar" aria-label="メニュー">
+  <p class="brand">うちのこと</p>
+  <button type="button" class="tab" data-view="today">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/><circle cx="12" cy="12" r="4"/></svg>
+    <span>今日</span>
+  </button>
+  <button type="button" class="tab" data-view="calendar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+    <span>カレンダー</span>
+  </button>
+  <button type="button" class="tab" data-view="lists">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg>
+    <span>リスト</span>
+  </button>
+  <button type="button" class="tab" data-view="care">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 9.5 5 3.5l4.5 3.2M18.5 9.5l.5-6-4.5 3.2"/><ellipse cx="12" cy="12.5" rx="7" ry="6.5"/><path d="M9.3 12.5h.01M14.7 12.5h.01"/></svg>
+    <span>ハル</span>
+  </button>
+  <button type="button" class="tab" data-view="home">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg>
+    <span>うち</span>
+  </button>
+</nav>
+
+<!-- 画面の中身 -->
+<main id="view" class="view"></main>
+
+<!-- ハルの通り道（ボタンを置かない帯） -->
+<div id="haru-lane" class="haru-lane"></div>
+
+<!-- どの画面からでも押せる「＋」 -->
+<button type="button" id="fab" class="fab" aria-label="追加する">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<!-- シート（スマホは下から、PCは右から） -->
+<div id="sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <h2 id="sheet-title"></h2>
+      <button type="button" id="sheet-close" class="btn-icon" aria-label="閉じる">×</button>
+    </div>
+    <div id="sheet-body" class="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<!-- 読み込む順番が大事：小道具 → データ → 同期 → ハル → 部品 → 画面 → 全体 -->
+<script src="js/util.js"></script>
+<script src="js/store.js"></script>
+<script src="js/model.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/haru.js"></script>
+<script src="js/sheet.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/forms.js"></script>
+<script src="js/views/today.js"></script>
+<script src="js/views/calendar.js"></script>
+<script src="js/views/lists.js"></script>
+<script src="js/views/care.js"></script>
+<script src="js/views/home.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
