@@ -107,7 +107,7 @@ const ListsView = (() => {
     const order = { high: 0, mid: 1, low: 2 };
     const open = Store.all('wishes').filter((w) => !w.purchasedAt)
       .sort((a, b) => (order[a.priority] ?? 1.5) - (order[b.priority] ?? 1.5) || b.createdAt - a.createdAt);
-    root.appendChild(open.length ? h('div', { class: 'wish-grid' }, open.map(wishCard)) : UI.empty('ほしいものはまだない。'));
+    root.appendChild(open.length ? h('ul', { class: 'wish-list' }, open.map(wishCard)) : UI.empty('ほしいものはまだない。'));
 
     const got = Store.all('wishes').filter((w) => w.purchasedAt).sort((a, b) => b.purchasedAt - a.purchasedAt);
     if (got.length) root.appendChild(doneBox('買ったもの', got.map((w) => h('li', { class: 'check-row is-done' },
@@ -116,17 +116,19 @@ const ListsView = (() => {
       h('span', { class: 'row-sub' }, U.md(U.dayOf(w.purchasedAt), false))))));
   }
 
+  // ほしいもの1件（細い行。画像は登録したときだけ小さく出す）
   function wishCard(w) {
     const pr = Forms.PRIORITIES.find((p) => p.value === w.priority);
     const safeUrl = /^https?:\/\//i.test(w.url || '') ? w.url : null;
-    return h('article', { class: 'wish' },
+    return h('li', { class: 'wish-row' },
       h('button', { type: 'button', class: 'wish-main', onclick: () => Forms.edit('wish', w, { extra: boughtButton(w) }) },
-        w.image ? h('img', { src: w.image, alt: '', class: 'wish-img' }) : h('span', { class: 'wish-img wish-noimg', 'aria-hidden': 'true' }),
-        h('span', { class: 'wish-title' }, w.title),
-        h('span', { class: 'wish-meta' },
-          w.price ? h('span', null, priceText(w.price)) : null,
-          w.owner ? h('span', null, Model.name(w.owner)) : null,
-          pr ? h('span', { class: 'tag' }, pr.label) : null)),
+        w.image ? h('img', { src: w.image, alt: '', class: 'wish-thumb' }) : null,
+        h('span', { class: 'wish-text' },
+          h('span', { class: 'wish-title' }, w.title),
+          h('span', { class: 'wish-meta' },
+            w.price ? h('span', null, priceText(w.price)) : null,
+            w.owner ? h('span', null, Model.name(w.owner)) : null,
+            pr ? h('span', { class: 'tag' }, pr.label) : null))),
       safeUrl ? h('a', { class: 'btn btn-quiet btn-small wish-link', href: safeUrl, target: '_blank', rel: 'noopener noreferrer' }, shopName(safeUrl) + 'で見る') : null);
   }
 

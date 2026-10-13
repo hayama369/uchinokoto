@@ -70,6 +70,9 @@ const TodayView = (() => {
         h('p', { class: 'shop-line' }, shop.slice(0, 8).map((s) => h('span', { class: 'tag' }, s.title)), shop.length > 8 ? h('span', { class: 'note' }, 'ほか' + (shop.length - 8) + '件') : null)));
     }
 
+    // ---- お金 ----
+    root.appendChild(MoneyView.todayCard());
+
     // ---- ハルのお世話 ----
     const due = Model.careDue();
     const doneCare = Model.careLogsSorted().filter((l) => U.dayOf(l.performedAt) === t);

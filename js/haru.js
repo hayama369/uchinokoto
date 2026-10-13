@@ -155,7 +155,7 @@ const Haru = (() => {
     if (!lane) return;
     stop();
     lane.dataset.scene = scene;
-    prop.innerHTML = scene === 'bag' ? BAG : scene === 'bowl' ? BOWL : '';
+    prop.innerHTML = scene === 'bag' ? BAG : scene === 'bowl' ? BOWL : scene === 'jar' ? jarSvg(jarLevel) : '';
     const spot = Math.min(maxX(), Math.max(60, track.clientWidth * 0.3));
     prop.style.transform = `translateX(${Math.round(spot)}px)`;
 
@@ -163,6 +163,7 @@ const Haru = (() => {
     if (scene === 'bag') return walkTo(spot + 18, () => setPose('sit')); // 袋に半分かくれてのぞく
     if (scene === 'bowl') return walkTo(spot + 58, () => setPose('sit')); // 皿のとなりに座る
     if (scene === 'look') return walkTo(spot, () => setPose('sit'));
+    if (scene === 'jar') return walkTo(spot + 44, () => setPose('sit')); // 貯金びんのとなり
     if (scene === 'sleep') return walkTo(spot, () => setPose('sleep'));
   }
 
@@ -186,5 +187,35 @@ const Haru = (() => {
     bubbleTimer = setTimeout(() => (bubble.hidden = true), 1500);
   }
 
-  return { mount, setScene };
+  // ---------- お金：貯金びん ----------
+  // level 0〜1。今月の記録が増えるほど、びんの中のコインが増える
+  let jarLevel = 0;
+  function jarSvg(level) {
+    const n = level > 0 ? Math.max(1, Math.round(level * 8)) : 0;
+    let coins = '';
+    for (let i = 0; i < n; i++) coins += `<ellipse class="coin" cx="${i % 2 ? 22 : 18}" cy="${43 - i * 4.4}" rx="9" ry="3"/>`;
+    return `<svg class="prop-jar" viewBox="0 0 40 50" aria-hidden="true">
+        <rect class="glass" x="4" y="9" width="32" height="39" rx="7"/>${coins}
+        <rect class="lid" x="8" y="3" width="24" height="7" rx="2"/>
+      </svg>`;
+  }
+  function setJar(level) {
+    jarLevel = Math.max(0, Math.min(1, level || 0));
+    if (lane && scene === 'jar') prop.innerHTML = jarSvg(jarLevel);
+  }
+
+  // 記録したときに、ぴょんとはねて一言
+  function cheer(text) {
+    if (!lane) return;
+    if (pose === 'sleep') setPose('sit');
+    bubble.textContent = text || 'にゃっ';
+    bubble.hidden = false;
+    cat.classList.remove('is-hop');
+    void cat.offsetWidth;
+    cat.classList.add('is-hop');
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => (bubble.hidden = true), 1800);
+  }
+
+  return { mount, setScene, setJar, cheer };
 })();

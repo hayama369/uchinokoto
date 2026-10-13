@@ -1,9 +1,9 @@
 /* =========================================================
    app.js ― アプリ全体の流れ（起動・タブの切り替え・描き直し）
    ---------------------------------------------------------
-   画面（view）は次の5つ。URLの # で切り替えます（#today など）。
+   画面（view）は次の6つ。URLの # で切り替えます（#today など）。
      today … 今日      calendar … カレンダー   lists … リスト
-     care  … ハル      home     … うち
+     money … お金      care     … ハル         home  … うち
    データが変わったら、今の画面を描き直します（入力中は入力が終わるまで待つ）。
    ========================================================= */
 
@@ -13,6 +13,7 @@ const App = (() => {
     today: TodayView,
     calendar: CalendarView,
     lists: ListsView,
+    money: MoneyView,
     care: CareView,
     home: HomeView,
   };
@@ -33,6 +34,7 @@ const App = (() => {
     document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => go(b.dataset.view)));
     // ＋
     $('fab').addEventListener('click', () => {
+      if (current === 'money') return MoneyView.openEntry();
       const type = current === 'lists' ? LIST_TYPE[U.pref('listTab', 'tasks')] : QUICK_DEFAULT[current];
       Forms.quickAdd(type || 'task');
     });

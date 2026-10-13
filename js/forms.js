@@ -70,11 +70,11 @@ const Forms = (() => {
       fields: [
         { key: 'title', label: '商品名', type: 'text', placeholder: '例：電気毛布', quick: true },
         { key: 'url', label: 'URL（Amazon・楽天など）', type: 'url', placeholder: 'https://', quick: true },
-        { key: 'image', label: '画像', type: 'image' },
         { key: 'price', label: '価格', type: 'text', placeholder: '例：3980' },
         { key: 'owner', label: 'だれが欲しい', type: 'chips', options: WISH_OWNERS, allowNone: true },
         { key: 'priority', label: '優先度', type: 'chips', options: () => PRIORITIES, allowNone: true },
         { key: 'note', label: 'メモ', type: 'textarea' },
+        { key: 'image', label: '画像（なくてもいい。見た目で覚えておきたいときだけ）', type: 'image' },
       ],
     },
     dream: {
@@ -179,6 +179,7 @@ const Forms = (() => {
       body.textContent = '';
       // 種類の切り替え
       body.appendChild(UI.chips(Object.entries(TYPES).map(([k, d]) => ({ value: k, label: d.label })), t, (nt) => nt && draw(nt), { label: '種類' }));
+      body.appendChild(h('button', { type: 'button', class: 'link', onclick: () => MoneyView.openEntry() }, 'お金を記録する →'));
       const spec = TYPES[t];
       const form = build(spec.fields.filter((f) => f.quick), values);
       const added = h('p', { class: 'note', 'aria-live': 'polite' });

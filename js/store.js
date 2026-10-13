@@ -17,10 +17,11 @@
      tasks      … やること       shopping … 買い物
      wishes     … ほしいもの     dreams   … やりたいこと
      careItems  … ハルのお世話の項目   careLogs … お世話の記録
+     moneyLogs  … お金の記録     moneyCats … お金の分類   moneyFixed … 固定費
    ========================================================= */
 
 const Store = (() => {
-  const COLLECTIONS = ['settings', 'events', 'workdays', 'tasks', 'shopping', 'wishes', 'dreams', 'careItems', 'careLogs'];
+  const COLLECTIONS = ['settings', 'events', 'workdays', 'tasks', 'shopping', 'wishes', 'dreams', 'careItems', 'careLogs', 'moneyLogs', 'moneyCats', 'moneyFixed'];
   const DB_NAME = 'uchi-no-koto';
 
   const data = {}; // { コレクション名: Map(id → 記録) }
@@ -101,6 +102,17 @@ const Store = (() => {
     care.forEach(([id, title, everyDays, order]) => {
       const key = 'care-' + id;
       if (!data.careItems.has(key)) putRaw('careItems', { id: key, title, everyDays, order, createdAt: 0, updatedAt: 0 });
+    });
+    // お金の分類（あとから「お金」画面の設定で足したり名前を変えたりできる）
+    const mcats = [
+      ['out', 'food', '食費'], ['out', 'eatout', '外食'], ['out', 'daily', '日用品'], ['out', 'haru', 'ハル'],
+      ['out', 'medical', '医療'], ['out', 'move', '交通'], ['out', 'wear', '服・美容'], ['out', 'fun', '趣味'],
+      ['out', 'social', '交際'], ['out', 'other', 'その他'],
+      ['in', 'salary', '給料'], ['in', 'extra', '臨時'], ['in', 'other', 'その他'],
+    ];
+    mcats.forEach(([kind, id, title], order) => {
+      const key = 'mc-' + kind + '-' + id;
+      if (!data.moneyCats.has(key)) putRaw('moneyCats', { id: key, kind, title, order: id === 'other' ? 99 : order, createdAt: 0, updatedAt: 0 });
     });
     // 古い版の「水」（まだ誰も編集していないもの）を「水の交換」に置きかえる
     const water = data.careItems.get('care-water');
