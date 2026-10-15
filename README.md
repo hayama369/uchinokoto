@@ -95,8 +95,8 @@ careItems   title, everyDays(1=毎日の目安 / null), order  ※初期項目�
 careLogs    careItemId, performedBy, performedAt
 moneyLogs   kind(out=支出|in=収入|save=貯金), amount(円), catId, date('2026-10-13'), memo, by
 moneyCats   kind(out|in), title, order  ※初期：食費・外食・日用品・ハル・医療・交通・服・美容・趣味・交際・その他／給料・臨時・その他
-moneyFixed  title, amount  ※毎月そのまま固定費として数える
-settings  (id:'money')   budget(月の予算・固定費のぞく), goalTitle, goalAmount, sound(false で音なし)
+moneyFixed  （使っていない。前のデータは残るが画面には出さない）
+settings  (id:'money')   budget(月の予算), goalTitle, goalAmount, sound(false で音なし)
 ```
 
 - **勤務（workdays）は予定（events）と別**。来年の勤務表に差し替えるときは、`source` と期間で消して入れ直す

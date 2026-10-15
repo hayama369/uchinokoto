@@ -50,6 +50,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
+/* 同じところを2回すばやく押しても画面が拡大しないように（iPhone） */
+html, body, button, a, input, select, textarea, label { touch-action: manipulation; }
 body {
   margin: 0;
   min-height: 100%;
@@ -690,7 +692,17 @@ textarea.field { resize: vertical; min-height: 84px; }
 .pad-amount.is-zero { color: var(--faint); }
 .pad-amount.is-shake { animation: shake 0.35s; }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pad-display { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+.pad-display .pad-amount { border-bottom: 0; }
+.pad-expr {
+  min-height: 1.4em; margin: 0; padding: 0 4px; text-align: right; color: var(--muted);
+  font-size: 0.95rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.pad-amount.is-neg { color: var(--danger); }
+.pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pad button.is-op { background: var(--lamp-soft); color: var(--lamp); font-weight: 700; }
+.pad button.is-clear { grid-column: span 2; font-size: 1.05rem; color: var(--muted); }
+.pad button.is-eq { grid-column: span 2; font-weight: 700; }
 .pad button {
   appearance: none; border: 0; border-radius: 14px; background: var(--surface-2); color: var(--fg);
   min-height: 50px; font-size: 1.35rem; font-variant-numeric: tabular-nums; cursor: pointer;

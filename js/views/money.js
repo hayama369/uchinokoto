@@ -5,14 +5,15 @@
      ・「記録する」→ 分類を押す → 金額を打つ → 「記録する」
      ・分類を選ばなければ「その他」。日付は今日。どちらもあとで直せる
      ・同じ記録を2回すると「いつもの」に出て、押すだけで記録できる
+     ・金額の画面は電卓つき（＋−×÷）。「1200+380」のように打てば合計で記録される
    記録するとコインと肉球がはじけて、ハルがはねる。
    今月の記録が増えるほど、ハルの横の貯金びんにコインがたまる。
 
    【コレクション】
      moneyLogs  … { kind: 'out'(支出) | 'in'(収入) | 'save'(貯金), amount, catId, date, memo, by }
      moneyCats  … { kind: 'out' | 'in', title, order }
-     moneyFixed … { title, amount }（毎月そのまま数える）
-     settings の id:'money' … { budget(月の予算・固定費のぞく), goalTitle, goalAmount, sound }
+     settings の id:'money' … { budget(月の予算), goalTitle, goalAmount, sound }
+     ※ 固定費（moneyFixed）は使わなくなった。前に入れたデータは残っているが、画面には出さない
    ========================================================= */
 
 const MoneyView = (() => {
@@ -65,9 +66,6 @@ const MoneyView = (() => {
     return logs().filter((l) => l.date.slice(0, 7) === k);
   }
   const total = (list, kind) => list.reduce((s, l) => s + (l.kind === kind ? +l.amount || 0 : 0), 0);
-  function fixedTotal() {
-    return Store.all('moneyFixed').reduce((s, f) => s + (+f.amount || 0), 0);
-  }
   function labelOf(l) {
     return l.kind === 'save' ? goalTitle() : catName(l.catId);
   }
@@ -126,6 +124,34 @@ const MoneyView = (() => {
   // ---------------------------------------------------------
   // 電卓シート（新しく記録 / 記録を直す）
   // ---------------------------------------------------------
+  const OPS = '+-*/';
+  const OP_LABEL = { '+': '＋', '-': '−', '*': '×', '/': '÷' };
+
+  /** 「1200+380*2」のような式を計算する（×÷が先）。打ちかけの記号は無視。だめなら NaN */
+  function calc(expr) {
+    const tokens = String(expr || '').match(/\d+|[+\-*/]/g) || [];
+    while (tokens.length && OPS.includes(tokens[tokens.length - 1])) tokens.pop();
+    if (!tokens.length) return 0;
+    const terms = [];
+    let cur = +tokens[0];
+    let sign = 1;
+    for (let i = 1; i < tokens.length; i += 2) {
+      const op = tokens[i];
+      const n = +tokens[i + 1];
+      if (op === '*') cur *= n;
+      else if (op === '/') cur = n ? cur / n : NaN;
+      else {
+        terms.push(sign * cur);
+        sign = op === '-' ? -1 : 1;
+        cur = n;
+      }
+    }
+    terms.push(sign * cur);
+    return terms.reduce((a, b) => a + b, 0);
+  }
+  const hasOp = (expr) => /[+\-*/]/.test(String(expr || ''));
+  const prettyExpr = (expr) => String(expr || '').replace(/\d+/g, (d) => (+d).toLocaleString('ja-JP')).replace(/[+\-*/]/g, (o) => ' ' + OP_LABEL[o] + ' ');
+
   function openEntry(rec, preset) {
     const editing = !!rec;
     const s = {
@@ -135,25 +161,46 @@ const MoneyView = (() => {
     };
     let memoOpen = !!s.memo;
     const body = h('div', { class: 'pad-wrap' });
+    const exprEl = h('p', { class: 'pad-expr', 'aria-live': 'polite' });
     const amountEl = h('p', { class: 'pad-amount', 'aria-live': 'polite' });
+    // s.amount は電卓の式（例 "1200+380"）。数字だけなら今まで通り
+    const value = () => {
+      const v = calc(s.amount);
+      return Number.isFinite(v) ? Math.round(v) : NaN;
+    };
     const showAmount = () => {
-      const n = toNum(s.amount);
-      amountEl.textContent = yen(n);
-      amountEl.classList.toggle('is-zero', !n);
+      const n = value();
+      const ok = Number.isFinite(n);
+      amountEl.textContent = ok ? (n < 0 ? '−' : '') + yen(Math.abs(n)) : '計算できない';
+      amountEl.classList.toggle('is-zero', !n || !ok);
+      amountEl.classList.toggle('is-neg', ok && n < 0);
+      exprEl.textContent = hasOp(s.amount) ? prettyExpr(s.amount) + ' =' : '';
     };
 
     const press = (k) => {
+      const last = s.amount.slice(-1);
       if (k === 'back') s.amount = s.amount.slice(0, -1);
-      else {
-        const next = (s.amount + k).replace(/^0+/, '');
-        if (next.length <= 9) s.amount = next;
+      else if (k === 'C') s.amount = '';
+      else if (k === '=') {
+        const n = value();
+        if (Number.isFinite(n) && n >= 0) s.amount = n ? String(n) : '';
+      } else if (OPS.includes(k)) {
+        if (!s.amount) return; // 先頭に記号は置かない
+        s.amount = OPS.includes(last) ? s.amount.slice(0, -1) + k : s.amount + k;
+      } else {
+        // 数字：いま打っている数の頭の0は消す。1つの数は9けたまで
+        const parts = s.amount.split(/([+\-*/])/);
+        const curNum = (parts.pop() || '') + k;
+        const trimmed = curNum.replace(/^0+(?=\d)/, '').replace(/^0+$/, '');
+        if (trimmed.length > 9 || s.amount.length >= 40) return;
+        s.amount = parts.join('') + trimmed;
       }
       showAmount();
     };
 
     const submit = () => {
-      const amount = toNum(s.amount);
-      if (!amount) {
+      const amount = value();
+      if (!Number.isFinite(amount) || amount <= 0) {
         amountEl.classList.remove('is-shake');
         void amountEl.offsetWidth;
         amountEl.classList.add('is-shake');
@@ -184,7 +231,7 @@ const MoneyView = (() => {
           },
         }, KIND_LABEL[k]))));
 
-      body.appendChild(amountEl);
+      body.appendChild(h('div', { class: 'pad-display' }, exprEl, amountEl));
       showAmount();
 
       // 分類（選ばなければ「その他」）
@@ -194,10 +241,17 @@ const MoneyView = (() => {
         body.appendChild(UI.chips(cats(s.kind).map((c) => ({ value: c.id, label: c.title })), s.catId, (v) => { s.catId = v; draw(); }, { allowNone: true, label: '分類' }));
       }
 
-      // 数字
+      // 数字と電卓
+      const KEY_ARIA = { back: '1文字消す', C: '全部消す', '=': '計算する', '+': 'たす', '-': 'ひく', '*': 'かける', '/': 'わる' };
+      const KEY_LABEL = { back: '⌫', ...OP_LABEL };
       body.appendChild(h('div', { class: 'pad' },
-        ['7', '8', '9', '4', '5', '6', '1', '2', '3', '00', '0', 'back'].map((k) =>
-          h('button', { type: 'button', 'aria-label': k === 'back' ? '1けた消す' : null, onclick: () => press(k) }, k === 'back' ? '⌫' : k))));
+        ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '00', '0', 'back', '+', 'C', '='].map((k) =>
+          h('button', {
+            type: 'button',
+            class: OPS.includes(k) ? 'is-op' : k === 'C' ? 'is-clear' : k === '=' ? 'is-eq' : null,
+            'aria-label': KEY_ARIA[k] || null,
+            onclick: () => press(k),
+          }, KEY_LABEL[k] || k))));
 
       body.appendChild(h('button', { type: 'button', class: 'btn btn-primary btn-wide btn-record', onclick: submit }, editing ? '保存' : '記録する'));
 
@@ -238,6 +292,9 @@ const MoneyView = (() => {
     const onKey = (e) => {
       if (e.target && e.target.matches && e.target.matches('input, textarea')) return;
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); }
+      else if (e.key.length === 1 && OPS.includes(e.key)) { e.preventDefault(); press(e.key); }
+      else if (e.key === '=') { e.preventDefault(); press('='); }
+      else if (e.key === 'Escape' || e.key === 'Delete') { e.preventDefault(); press('C'); }
       else if (e.key === 'Backspace') { e.preventDefault(); press('back'); }
       else if (e.key === 'Enter') { e.preventDefault(); submit(); }
     };
@@ -258,7 +315,6 @@ const MoneyView = (() => {
     const out = total(list, 'out');
     const inc = total(list, 'in');
     const save = total(list, 'save');
-    const fixed = fixedTotal();
     const st = settings();
     const nDays = daysIn(y, m);
     const todayIdx = isNow ? U.parse(U.today()).getDate() : isPast ? nDays : 0;
@@ -281,7 +337,7 @@ const MoneyView = (() => {
 
     // ---- 今月のまとめ ----
     const budget = +st.budget || 0;
-    const sum = [h('p', { class: 'big-sub' }, '使ったお金（固定費のぞく）'), h('p', { class: 'big-num' }, yen(out))];
+    const sum = [h('p', { class: 'big-sub' }, '使ったお金'), h('p', { class: 'big-num' }, yen(out))];
     if (budget) {
       const left = budget - out;
       const over = left < 0;
@@ -300,8 +356,8 @@ const MoneyView = (() => {
         if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
       } }, '月の予算を決める →'));
     }
-    const stats = [['固定費', fixed, '毎月'], ['収入', inc], ['貯金', save]];
-    if (inc) stats.push(['手元に残る', inc - out - fixed - save]);
+    const stats = [['収入', inc], ['貯金', save]];
+    if (inc) stats.push(['手元に残る', inc - out - save]);
     sum.push(h('div', { class: 'stat-grid' }, stats.map(([label, v, note]) => h('div', { class: 'stat' },
       h('span', { class: 'stat-label' }, label, note ? h('span', { class: 'stat-note' }, '　' + note) : null),
       h('span', { class: 'stat-value' + (v < 0 ? ' is-neg' : '') }, (v < 0 ? '−' : '') + yen(Math.abs(v)))))));
@@ -353,8 +409,7 @@ const MoneyView = (() => {
         h('ul', { class: 'cat-rows' }, rows.map(([id, v]) => h('li', { class: 'cat-row' },
           h('span', { class: 'cat-name' }, catName(id)),
           h('span', { class: 'cat-bar', 'aria-hidden': 'true' }, h('span', { style: { width: (v / rows[0][1]) * 100 + '%' } })),
-          h('span', { class: 'cat-amt' }, yen(v), h('span', { class: 'cat-pct' }, Math.round((v / out) * 100) + '%'))))),
-        h('p', { class: 'note' }, '固定費はここには入らない。')));
+          h('span', { class: 'cat-amt' }, yen(v), h('span', { class: 'cat-pct' }, Math.round((v / out) * 100) + '%')))))));
     }
 
     // ---- 月ごと（6か月） ----
@@ -373,8 +428,7 @@ const MoneyView = (() => {
           months.map(([, mm], i) => h('div', { class: 'mbar' + (i === 5 ? ' is-cur' : '') },
             h('span', { class: 'mbar-v' }, mv[i] ? short(mv[i]) : '—'),
             h('span', { class: 'mbar-b', style: { height: mv[i] ? Math.max(3, (mv[i] / mx) * 80) + 'px' : '0' } }),
-            h('span', { class: 'mbar-m' }, mm + '月')))),
-        h('p', { class: 'note' }, '固定費のぞく。')));
+            h('span', { class: 'mbar-m' }, mm + '月'))))));
     }
 
     // ---- 貯金 ----
@@ -429,7 +483,7 @@ const MoneyView = (() => {
   }
 
   // ---------------------------------------------------------
-  // 設定（予算・固定費・分類・貯金の目標・音）
+  // 設定（予算・分類・貯金の目標・音）
   // ---------------------------------------------------------
   function yenInput(id, value, onSet, placeholder) {
     const el = h('input', { type: 'text', inputmode: 'numeric', class: 'field yen-field', id, placeholder: placeholder || '例：60000', autocomplete: 'off', enterkeyhint: 'done' });
@@ -441,30 +495,8 @@ const MoneyView = (() => {
   function settingsCard(st) {
     // 予算
     const budget = h('div', { class: 'set-block' },
-      h('label', { class: 'set-h', for: 'money-budget' }, '月の予算（固定費のぞく）'),
+      h('label', { class: 'set-h', for: 'money-budget' }, '月の予算'),
       yenInput('money-budget', st.budget, (v) => setSettings({ budget: v || null })));
-
-    // 固定費
-    const fixed = Store.all('moneyFixed').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    const fTitle = h('input', { type: 'text', class: 'field', id: 'fixed-title', placeholder: '例：家賃', autocomplete: 'off', 'aria-label': '固定費の名前' });
-    const fAmount = yenInput('fixed-amount', null, null, '金額');
-    fAmount.setAttribute('aria-label', '固定費の金額');
-    const fixedBlock = h('div', { class: 'set-block' },
-      h('p', { class: 'set-h' }, '固定費（毎月そのまま数える）　合計 ' + yen(fixedTotal())),
-      fixed.length
-        ? h('ul', { class: 'rows' }, fixed.map((f) => h('li', null,
-            h('button', { type: 'button', class: 'row-btn', onclick: () => editFixed(f) },
-              h('span', { class: 'row-title' }, f.title), h('span', { class: 'amt' }, yen(f.amount))))))
-        : null,
-      h('form', { class: 'money-pair', onsubmit: (e) => {
-        e.preventDefault();
-        const title = fTitle.value.trim();
-        const amount = toNum(fAmount.value);
-        if (!title) return fTitle.focus();
-        if (!amount) return fAmount.focus();
-        Store.put('moneyFixed', { title, amount });
-        Toast.show('固定費に足した。');
-      } }, fTitle, fAmount, h('button', { type: 'submit', class: 'btn btn-solid' }, '追加')));
 
     // 分類
     const catBlock = (kind, label) => h('div', { class: 'set-block' },
@@ -489,30 +521,7 @@ const MoneyView = (() => {
       onclick: () => setSettings({ sound: !soundOn }),
     }, h('span', { 'aria-hidden': 'true' }, '♪'), h('span', null, '記録したときのチャリン音'), h('span', { class: 'switch', 'aria-hidden': 'true' }));
 
-    return UI.card('お金の設定', null, budget, fixedBlock, catBlock('out', '支出'), catBlock('in', '収入'), goalBlock, sound);
-  }
-
-  function editFixed(f) {
-    const title = h('input', { type: 'text', class: 'field', id: 'edit-fixed-title', autocomplete: 'off' });
-    title.value = f.title || '';
-    const amount = yenInput('edit-fixed-amount', f.amount);
-    let armed = false;
-    const del = h('button', { type: 'button', class: 'btn btn-ghost danger', onclick: () => {
-      if (!armed) { armed = true; del.textContent = '本当に削除する'; return; }
-      Store.remove('moneyFixed', f.id);
-      Sheet.close();
-      Toast.show('削除した。');
-    } }, '削除');
-    Sheet.open('固定費', h('form', { class: 'edit-form', onsubmit: (e) => {
-      e.preventDefault();
-      if (!title.value.trim() || !toNum(amount.value)) return;
-      Store.put('moneyFixed', { id: f.id, title: title.value.trim(), amount: toNum(amount.value) });
-      Sheet.close();
-    } },
-      h('div', { class: 'form-fields' },
-        h('div', { class: 'form-row' }, h('label', { class: 'form-label', for: 'edit-fixed-title' }, '名前'), title),
-        h('div', { class: 'form-row' }, h('label', { class: 'form-label', for: 'edit-fixed-amount' }, '毎月の金額'), amount)),
-      h('div', { class: 'row' }, h('button', { type: 'submit', class: 'btn btn-primary' }, '保存'), del)));
+    return UI.card('お金の設定', null, budget, catBlock('out', '支出'), catBlock('in', '収入'), goalBlock, sound);
   }
 
   function editCat(c) {
