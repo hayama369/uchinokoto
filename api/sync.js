@@ -9,6 +9,9 @@
    ・合言葉はそのまま保存せず、暗号化（SHA-256）した値を「家の置き場所の名前」にします。
      環境変数 SYNC_PEPPER に好きな文字を入れておくと、さらに推測されにくくなります（任意）。
 
+   脳内タブ（nouchi-tab）も、合言葉の頭に "noutab:" を付けてここを使っています（置き場所は別になる）。
+   そのため、ほかのサイトからの呼び出し（CORS）を許可しています。
+
    受け取るもの（POST / JSON）：
      { code: 合言葉, since: 前回受け取った時刻, records: [送る記録…] }
    返すもの：
@@ -26,6 +29,15 @@ const MAX_RECORDS = 300; // 1回に受け取る記録の上限
 const MAX_RECORD_BYTES = 400 * 1024; // 1件の大きさの上限（画像つきのほしいもの対策）
 
 module.exports = async function handler(req, res) {
+  // 脳内タブ（別のサイト）からも使えるようにする。中身は合言葉がないと読めない
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
+  }
   if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
 
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
