@@ -609,6 +609,10 @@ textarea.field { resize: vertical; min-height: 84px; }
 .usual-amt { font-variant-numeric: tabular-nums; color: var(--lamp); }
 .chip-go { border-color: var(--lamp); color: var(--lamp); }
 .today-money { color: var(--muted); }
+.today-left { color: var(--muted); }
+.today-left strong { font-family: var(--font-display); font-size: 2rem; color: var(--fg); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.today-left strong.is-neg, .big-num.is-neg { color: var(--danger); }
+.big-num.is-zero { color: var(--faint); }
 .today-money strong { font-family: var(--font-display); font-size: 1.45rem; color: var(--fg); font-variant-numeric: tabular-nums; margin-left: 4px; }
 
 .big-sub { color: var(--muted); font-size: 0.88rem; }

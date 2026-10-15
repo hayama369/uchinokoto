@@ -7,6 +7,7 @@
      ・同じ記録を2回すると「いつもの」に出て、押すだけで記録できる
      ・金額の画面は電卓つき（＋−×÷）。「1200+380」のように打てば合計で記録される
    記録するとコインと肉球がはじけて、ハルがはねる。
+   いちばん上は「残ってるお金」（その月の収入 − 支出 − 貯金）。「今日」画面にも出る。
    今月の記録が増えるほど、ハルの横の貯金びんにコインがたまる。
 
    【コレクション】
@@ -66,6 +67,13 @@ const MoneyView = (() => {
     return logs().filter((l) => l.date.slice(0, 7) === k);
   }
   const total = (list, kind) => list.reduce((s, l) => s + (l.kind === kind ? +l.amount || 0 : 0), 0);
+  /** 残ってるお金＝その月の収入 − 支出 − 貯金（収入がまだなければ null） */
+  function leftOf(list) {
+    const inc = total(list, 'in');
+    return inc ? inc - total(list, 'out') - total(list, 'save') : null;
+  }
+  const signedYen = (n) => (n < 0 ? '−' : '') + yen(Math.abs(n));
+
   function labelOf(l) {
     return l.kind === 'save' ? goalTitle() : catName(l.catId);
   }
@@ -327,20 +335,23 @@ const MoneyView = (() => {
         isNow ? null : h('button', { type: 'button', class: 'btn btn-quiet btn-small', onclick: () => { ym = null; selDay = null; App.render(); } }, '今月'),
         h('button', { type: 'button', class: 'btn-icon', 'aria-label': '次の月', onclick: () => move(1) }, '›'))));
 
-    // ---- 記録する ----
-    const us = usual();
-    root.appendChild(h('div', { class: 'money-hero' },
-      h('button', { type: 'button', class: 'btn btn-primary btn-wide btn-record', onclick: () => openEntry() }, '記録する'),
-      us.length
-        ? h('div', { class: 'usual' }, h('p', { class: 'form-label' }, 'いつもの（押すだけで記録）'), h('div', { class: 'chips' }, us.map(usualChip)))
-        : h('p', { class: 'note' }, '同じ記録を2回すると、ここに「いつもの」が出る。押すだけで記録できる。')));
-
     // ---- 今月のまとめ ----
     const budget = +st.budget || 0;
-    const sum = [h('p', { class: 'big-sub' }, '使ったお金'), h('p', { class: 'big-num' }, yen(out))];
+    // いちばん上は「残ってるお金」（収入 − 使ったお金 − 貯金）
+    const left = leftOf(list);
+    const sum = left === null
+      ? [
+          h('p', { class: 'big-sub' }, '残ってるお金'),
+          h('p', { class: 'big-num is-zero' }, '—'),
+          h('button', { type: 'button', class: 'link', onclick: () => openEntry(null, { kind: 'in' }) }, (isNow ? '今月' : m + '月') + 'の収入を記録すると、ここに残りが出る →'),
+        ]
+      : [
+          h('p', { class: 'big-sub' }, '残ってるお金'),
+          h('p', { class: 'big-num' + (left < 0 ? ' is-neg' : '') }, signedYen(left)),
+        ];
     if (budget) {
-      const left = budget - out;
-      const over = left < 0;
+      const bLeft = budget - out;
+      const over = bLeft < 0;
       const daysLeft = isNow ? nDays - todayIdx + 1 : 0;
       sum.push(
         h('div', { class: 'meter' + (over ? ' is-over' : ''), role: 'img', 'aria-label': '予算' + yen(budget) + 'のうち' + yen(out) + '使った' },
@@ -348,20 +359,22 @@ const MoneyView = (() => {
           isNow ? h('span', { class: 'meter-pace', style: { left: (todayIdx / nDays) * 100 + '%' } }) : null),
         h('div', { class: 'meter-legend' }, h('span', null, '予算 ' + yen(budget)), isNow ? h('span', null, '縦線＝今日までの目安') : null),
         h('p', { class: 'money-left' + (over ? ' is-over' : '') },
-          over ? '予算を ' + yen(-left) + ' こえた' : 'あと ' + yen(left),
-          !over && isNow && daysLeft > 0 ? h('span', { class: 'note' }, '　1日あたり ' + yen(Math.floor(left / daysLeft)) + '（残り' + daysLeft + '日）') : null));
-    } else {
-      sum.push(h('button', { type: 'button', class: 'link', onclick: () => {
-        const el = document.getElementById('money-budget');
-        if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
-      } }, '月の予算を決める →'));
+          over ? '予算を ' + yen(-bLeft) + ' こえた' : '予算まであと ' + yen(bLeft),
+          !over && isNow && daysLeft > 0 ? h('span', { class: 'note' }, '　1日あたり ' + yen(Math.floor(bLeft / daysLeft)) + '（残り' + daysLeft + '日）') : null));
     }
-    const stats = [['収入', inc], ['貯金', save]];
-    if (inc) stats.push(['手元に残る', inc - out - save]);
+    const stats = [['収入', inc], ['使ったお金', out], ['貯金', save]];
     sum.push(h('div', { class: 'stat-grid' }, stats.map(([label, v, note]) => h('div', { class: 'stat' },
       h('span', { class: 'stat-label' }, label, note ? h('span', { class: 'stat-note' }, '　' + note) : null),
       h('span', { class: 'stat-value' + (v < 0 ? ' is-neg' : '') }, (v < 0 ? '−' : '') + yen(Math.abs(v)))))));
     root.appendChild(UI.card(isNow ? '今月' : m + '月のまとめ', null, ...sum));
+
+    // ---- 記録する ----
+    const us = usual();
+    root.appendChild(h('div', { class: 'money-hero' },
+      h('button', { type: 'button', class: 'btn btn-primary btn-wide btn-record', onclick: () => openEntry() }, '記録する'),
+      us.length
+        ? h('div', { class: 'usual' }, h('p', { class: 'form-label' }, 'いつもの（押すだけで記録）'), h('div', { class: 'chips' }, us.map(usualChip)))
+        : h('p', { class: 'note' }, '同じ記録を2回すると、ここに「いつもの」が出る。押すだけで記録できる。')));
 
     // ---- 毎日の支出（記録するたびに棒が育つ） ----
     const perDay = Array.from({ length: nDays }, () => 0);
@@ -551,7 +564,11 @@ const MoneyView = (() => {
   function todayCard() {
     const t = U.today();
     const spent = total(logs().filter((l) => l.date === t), 'out');
+    const left = leftOf(logsOf(...curNow()));
     return UI.card('今日のお金', UI.more('お金へ', () => App.go('money')),
+      left === null
+        ? h('p', { class: 'today-money' }, '今月の収入を記録すると、残ってるお金がここに出る。')
+        : h('p', { class: 'today-left' }, '残ってるお金', h('strong', { class: left < 0 ? 'is-neg' : null }, signedYen(left))),
       h('p', { class: 'today-money' }, '今日使った', h('strong', null, yen(spent))),
       h('div', { class: 'chips' },
         h('button', { type: 'button', class: 'chip chip-go', onclick: () => openEntry() }, '＋ 記録する'),
